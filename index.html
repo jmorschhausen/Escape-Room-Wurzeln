@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escape Room: Das Rätsel der Wurzeln</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Orbitron:wght@400;600;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mystic: {
+              900: '#0b0f19',
+              800: '#111827',
+              700: '#1f293d',
+              gold: '#fbbf24',
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              ruby: '#f43f5e'
+            }
+          },
+          fontFamily: {
+            title: ['"Cinzel Decorative"', 'serif'],
+            tech: ['Orbitron', 'sans-serif'],
+            body: ['Rajdhani', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: radial-gradient(circle at center, #131b2e 0%, #080b12 100%);
+      font-family: 'Rajdhani', sans-serif;
+      color: #e2e8f0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .glow-gold {
+      box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    }
+
+    .glow-emerald {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .glow-text-gold {
+      text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+    }
+
+    .glow-text-cyan {
+      text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0f19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f293d;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #06b6d4;
+    }
+
+    /* Keypad button effect */
+    .keypad-btn {
+      transition: all 0.15s ease;
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .keypad-btn:active {
+      transform: scale(0.95);
+      background: #06b6d4;
+      color: #000;
+    }
+
+    .draggable-card {
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .draggable-card:active {
+      cursor: grabbing;
+      transform: scale(1.05);
+      z-index: 50;
+    }
+
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.05); }
+    }
+    .bg-pulse {
+      animation: pulse-slow 8s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen relative selection:bg-cyan-500 selection:text-black">
+
+  <!-- Background decorative elements -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-cyan-900/20 rounded-full blur-3xl bg-pulse"></div>
+    <div class="absolute top-1/2 -right-40 w-96 h-96 bg-amber-900/20 rounded-full blur-3xl bg-pulse" style="animation-delay: 3s;"></div>
+    <div class="absolute -bottom-40 left-1/3 w-96 h-96 bg-emerald-900/20 rounded-full blur-3xl bg-pulse" style="animation-delay: 5s;"></div>
+  </div>
+
+  <header class="relative z-10 glass-panel border-b border-slate-700/50 px-4 py-3 sticky top-0">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <!-- Game Title -->
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-dungeon text-amber-400 text-2xl glow-text-gold"></i>
+        <div>
+          <h1 class="font-title text-lg md:text-xl font-bold tracking-wider text-amber-400">DAS RÄTSEL DER WURZELN</h1>
+          <p class="text-xs text-slate-400">Mathematik Escape Room</p>
+        </div>
+      </div>
+
+      <!-- Room Navigation / Progress Badges -->
+      <div id="room-progress" class="flex items-center gap-1.5 md:gap-3 overflow-x-auto py-1">
+        <!-- Room indicators injected via JS -->
+      </div>
+
+      <!-- Controls & Timer -->
+      <div class="flex items-center gap-4">
+        <!-- Sound Toggle -->
+        <button id="sound-btn" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition" title="Sound An/Aus">
+          <i class="fa-solid fa-volume-high text-lg"></i>
+        </button>
+
+        <!-- Timer -->
+        <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700 px-3 py-1.5 rounded-lg">
+          <i class="fa-solid fa-clock text-cyan-400 animate-pulse"></i>
+          <span id="timer-display" class="font-tech text-lg font-bold text-cyan-400">00:00</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 relative z-10 max-w-5xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+    
+    <!-- Intro Screen -->
+    <div id="intro-screen" class="glass-panel p-6 md:p-10 rounded-2xl text-center space-y-6 max-w-2xl mx-auto border-amber-500/30">
+      <div class="w-20 h-20 bg-amber-500/10 border border-amber-500/40 rounded-full flex items-center justify-center mx-auto text-amber-400 text-4xl glow-gold">
+        <i class="fa-solid fa-key"></i>
+      </div>
+      <h2 class="font-title text-2xl md:text-3xl text-amber-400">Gefangen in der Akademie der Zahlen</h2>
+      <p class="text-slate-300 text-base md:text-lg leading-relaxed">
+        Du bist im verlassenen Mathematikum gefangen. Um die schwere Haupttür zu öffnen, musst du 5 Räume durchqueren und in jedem Raum einen <span class="text-cyan-400 font-bold">digitalen Schlüssel-Code</span> lösen.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-left text-sm text-slate-400 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Raum 1: Einfache Wurzeln</div>
+        <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Raum 2: Zahlenmengen (N, Z, Q, R)</div>
+        <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Raum 3: Wurzelgesetze</div>
+        <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Raum 4: Teilweises Wurzelziehen</div>
+        <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Raum 5: Wurzeln näherungsweise bestimmen</div>
+        <div class="flex items-center gap-2 col-span-1 md:col-span-2 text-amber-400"><i class="fa-solid fa-lock"></i> Finale: Das meisterhafte Haupttor</div>
+      </div>
+      <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-tech font-bold text-lg rounded-xl shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 glow-gold">
+        <i class="fa-solid fa-door-open mr-2"></i> ESCAPE ROOM STARTEN
+      </button>
+    </div>
+
+    <!-- Active Room Container (Hidden initially) -->
+    <div id="room-container" class="hidden space-y-6">
+      
+      <!-- Room Info Header -->
+      <div class="glass-panel p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 border-l-4 border-cyan-500">
+        <div>
+          <div class="flex items-center gap-2 text-xs font-tech text-cyan-400 uppercase tracking-widest">
+            <span id="room-num-badge">Raum 1 von 5</span>
+          </div>
+          <h2 id="room-title" class="text-xl md:text-2xl font-bold text-white">Raum-Titel</h2>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="hint-btn" class="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+            <i class="fa-solid fa-lightbulb"></i> Tipp anfordern
+          </button>
+        </div>
+      </div>
+
+      <!-- Hint Box (Initially Hidden) -->
+      <div id="hint-box" class="hidden glass-panel p-4 rounded-xl bg-amber-950/20 border border-amber-500/30 text-amber-200 text-sm flex items-start gap-3">
+        <i class="fa-solid fa-circle-info text-amber-400 text-lg mt-0.5"></i>
+        <div id="hint-text">Tipp Inhalt...</div>
+      </div>
+
+      <!-- Dynamic Puzzle View -->
+      <div id="puzzle-view" class="glass-panel p-6 md:p-8 rounded-2xl">
+        <!-- Room specific HTML injected dynamically -->
+      </div>
+
+      <!-- Collect Code Banner (Shows when room solved) -->
+      <div id="code-banner" class="hidden glass-panel p-6 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 text-center space-y-4">
+        <div class="text-emerald-400 text-2xl font-bold flex items-center justify-center gap-2">
+          <i class="fa-solid fa-circle-check"></i> Rätsel gelöst!
+        </div>
+        <p class="text-slate-300">Du hast den Teil-Code für diesen Raum freigeschaltet:</p>
+        <div id="unlocked-code-display" class="font-tech text-3xl font-extrabold text-amber-400 tracking-wider glow-text-gold">
+          CODE: ?
+        </div>
+        <button id="next-room-btn" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-tech font-bold rounded-xl transition shadow-lg">
+          Weiter zum nächsten Raum <i class="fa-solid fa-arrow-right ml-2"></i>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Final Master Lock Screen -->
+    <div id="final-screen" class="hidden glass-panel p-6 md:p-10 rounded-2xl border-amber-500/40 space-y-6 text-center max-w-2xl mx-auto">
+      <div class="w-20 h-20 bg-amber-500/10 border border-amber-500/40 rounded-full flex items-center justify-center mx-auto text-amber-400 text-4xl glow-gold">
+        <i class="fa-solid fa-vault"></i>
+      </div>
+      <div>
+        <h2 class="font-title text-2xl md:text-3xl text-amber-400">Das Haupttor zum Ausgang</h2>
+        <p class="text-slate-300 text-sm md:text-base mt-2">
+          Gib die 5 gefundenen Zahlen-Codes aus den Räumen 1 bis 5 in der richtigen Reihenfolge ein!
+        </p>
+      </div>
+
+      <!-- Code inputs overview -->
+      <div class="grid grid-cols-5 gap-2 md:gap-3 my-6">
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+          <div class="text-[10px] font-tech text-slate-400">RAUM 1</div>
+          <div id="code-val-1" class="font-tech text-xl font-bold text-amber-400">?</div>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+          <div class="text-[10px] font-tech text-slate-400">RAUM 2</div>
+          <div id="code-val-2" class="font-tech text-xl font-bold text-amber-400">?</div>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+          <div class="text-[10px] font-tech text-slate-400">RAUM 3</div>
+          <div id="code-val-3" class="font-tech text-xl font-bold text-amber-400">?</div>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+          <div class="text-[10px] font-tech text-slate-400">RAUM 4</div>
+          <div id="code-val-4" class="font-tech text-xl font-bold text-amber-400">?</div>
+        </div>
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+          <div class="text-[10px] font-tech text-slate-400">RAUM 5</div>
+          <div id="code-val-5" class="font-tech text-xl font-bold text-amber-400">?</div>
+        </div>
+      </div>
+
+      <!-- Combination Lock Pads -->
+      <div class="flex justify-center items-center gap-2 md:gap-4 my-4">
+        <input type="number" id="master-input-1" maxlength="1" min="0" max="9" class="w-12 h-16 md:w-16 md:h-20 text-center font-tech text-2xl md:text-3xl font-bold bg-slate-900 border-2 border-slate-700 focus:border-cyan-400 rounded-xl text-white outline-none" placeholder="0">
+        <input type="number" id="master-input-2" maxlength="1" min="0" max="9" class="w-12 h-16 md:w-16 md:h-20 text-center font-tech text-2xl md:text-3xl font-bold bg-slate-900 border-2 border-slate-700 focus:border-cyan-400 rounded-xl text-white outline-none" placeholder="0">
+        <input type="number" id="master-input-3" maxlength="1" min="0" max="9" class="w-12 h-16 md:w-16 md:h-20 text-center font-tech text-2xl md:text-3xl font-bold bg-slate-900 border-2 border-slate-700 focus:border-cyan-400 rounded-xl text-white outline-none" placeholder="0">
+        <input type="number" id="master-input-4" maxlength="1" min="0" max="9" class="w-12 h-16 md:w-16 md:h-20 text-center font-tech text-2xl md:text-3xl font-bold bg-slate-900 border-2 border-slate-700 focus:border-cyan-400 rounded-xl text-white outline-none" placeholder="0">
+        <input type="number" id="master-input-5" maxlength="1" min="0" max="9" class="w-12 h-16 md:w-16 md:h-20 text-center font-tech text-2xl md:text-3xl font-bold bg-slate-900 border-2 border-slate-700 focus:border-cyan-400 rounded-xl text-white outline-none" placeholder="0">
+      </div>
+
+      <p id="master-feedback" class="text-sm min-h-[20px] font-semibold text-rose-400"></p>
+
+      <button id="unlock-master-btn" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-tech font-bold text-lg rounded-xl shadow-lg transition glow-emerald">
+        <i class="fa-solid fa-key mr-2"></i> MASTER-SCHLÜSSEL PRÜFEN
+      </button>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="victory-screen" class="hidden glass-panel p-8 md:p-12 rounded-2xl text-center space-y-6 max-w-2xl mx-auto border-emerald-500/50">
+      <div class="w-24 h-24 bg-emerald-500/20 border-2 border-emerald-400 rounded-full flex items-center justify-center mx-auto text-emerald-400 text-5xl glow-emerald animate-bounce">
+        <i class="fa-solid fa-trophy"></i>
+      </div>
+      <h2 class="font-title text-3xl md:text-4xl text-emerald-400">ENTKOMMEN!</h2>
+      <p class="text-slate-200 text-lg">
+        Herzlichen Glückwunsch! Du hast alle mathematischen Rätsel gemeistert und das Tor geöffnet.
+      </p>
+
+      <!-- Results Stats -->
+      <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-800 grid grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs text-slate-400 font-tech uppercase">Benötigte Zeit</div>
+          <div id="final-time" class="font-tech text-2xl font-bold text-cyan-400">00:00</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 font-tech uppercase">Verwendete Tipps</div>
+          <div id="final-hints" class="font-tech text-2xl font-bold text-amber-400">0</div>
+        </div>
+      </div>
+
+      <div id="star-rating" class="text-amber-400 text-3xl space-x-2">
+        <i class="fa-solid fa-star"></i>
+        <i class="fa-solid fa-star"></i>
+        <i class="fa-solid fa-star"></i>
+      </div>
+
+      <button id="restart-btn" class="px-8 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-tech font-bold rounded-xl transition">
+        <i class="fa-solid fa-rotate-right mr-2"></i> Nochmal Spielen
+      </button>
+    </div>
+
+  </main>
+
+  <script>
+    /* Web Audio API Synthesizer for Retro / Cyber Sound Effects */
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+
+      playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+        if (this.muted) return;
+        this.init();
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      }
+
+      playSuccess() {
+        this.playTone(523.25, 'triangle', 0.1, 0.15); // C5
+        setTimeout(() => this.playTone(659.25, 'triangle', 0.1, 0.15), 100); // E5
+        setTimeout(() => this.playTone(783.99, 'triangle', 0.25, 0.2), 200); // G5
+      }
+
+      playError() {
+        this.playTone(220, 'sawtooth', 0.15, 0.2); // A3
+        setTimeout(() => this.playTone(180, 'sawtooth', 0.25, 0.2), 120);
+      }
+
+      playClick() {
+        this.playTone(800, 'sine', 0.03, 0.05);
+      }
+    }
+
+    const audio = new AudioEngine();
+
+    /* Game State Object */
+    const gameState = {
+      currentRoom: 0, // 1 to 5
+      unlockedCodes: { 1: 7, 2: 4, 3: 9, 4: 3, 5: 6 }, // Secret room codes generated or static
+      roomSolved: [false, false, false, false, false, false],
+      hintsUsed: 0,
+      startTime: null,
+      timerInterval: null,
+      elapsedSeconds: 0
+    };
+
+    /* Room Definitions & Hints */
+    const roomDetails = [
+      {}, // 0 unused
+      {
+        title: "Raum 1: Die Kammer der Wurzel-Terme",
+        hint: "Berechne die einzelnen Quadratwurzeln. Beispiel: √81 = 9, da 9 × 9 = 81. Füge am Ende alle Teilergebnisse zum gesuchten 3-stelligen Code zusammen!"
+      },
+      {
+        title: "Raum 2: Das Labyrinth der Zahlenmengen",
+        hint: "N = Natürliche Zahlen (1,2,3...), Z = Ganze Zahlen (inkl. negativer Zahlen), Q = Rationale Zahlen (Brüche/Endliche Dezimalzahlen), R = Reelle Zahlen (inkl. π und unendliche Nicht-Periodische Wurzeln wie √3)."
+      },
+      {
+        title: "Raum 3: Die Energiezelle der Wurzelgesetze",
+        hint: "Nutze die Gesetze: √a × √b = √(a × b) und √a / √b = √(a / b). Beispiel: √2 × √8 = √16 = 4."
+      },
+      {
+        title: "Raum 4: Der Tresor des teilweisen Wurzelziehens",
+        hint: "Zerlege die Zahl unter der Wurzel in ein Produkt aus einer Quadratzahl und einer Restzahl. Beispiel: √50 = √(25 × 2) = 5√2. Trage 'a' und 'b' für a√b ein."
+      },
+      {
+        title: "Raum 5: Das Verlies der Näherungswerte",
+        hint: "Finde die zwei perfekten Quadratzahlen, zwischen denen die gesuchte Zahl liegt. Zum Beispiel liegt √30 zwischen √25 (=5) und √36 (=6)."
+      }
+    ];
+
+    // DOM Elements
+    const introScreen = document.getElementById('intro-screen');
+    const roomContainer = document.getElementById('room-container');
+    const puzzleView = document.getElementById('puzzle-view');
+    const finalScreen = document.getElementById('final-screen');
+    const victoryScreen = document.getElementById('victory-screen');
+    const timerDisplay = document.getElementById('timer-display');
+    const hintBtn = document.getElementById('hint-btn');
+    const hintBox = document.getElementById('hint-box');
+    const hintText = document.getElementById('hint-text');
+    const roomProgress = document.getElementById('room-progress');
+    const codeBanner = document.getElementById('code-banner');
+    const unlockedCodeDisplay = document.getElementById('unlocked-code-display');
+
+    // Setup Event Listeners
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('sound-btn').addEventListener('click', toggleSound);
+    document.getElementById('hint-btn').addEventListener('click', showHint);
+    document.getElementById('next-room-btn').addEventListener('click', advanceRoom);
+    document.getElementById('unlock-master-btn').addEventListener('click', checkMasterLock);
+    document.getElementById('restart-btn').addEventListener('click', () => location.reload());
+
+    function toggleSound() {
+      audio.muted = !audio.muted;
+      const icon = document.querySelector('#sound-btn i');
+      icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high text-slate-300';
+    }
+
+    function startTimer() {
+      gameState.startTime = Date.now();
+      gameState.timerInterval = setInterval(() => {
+        gameState.elapsedSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
+        const mins = String(Math.floor(gameState.elapsedSeconds / 60)).padStart(2, '0');
+        const secs = String(gameState.elapsedSeconds % 60).padStart(2, '0');
+        timerDisplay.textContent = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function renderProgressBadges() {
+      roomProgress.innerHTML = '';
+      for (let i = 1; i <= 5; i++) {
+        const badge = document.createElement('div');
+        const isCurrent = gameState.currentRoom === i;
+        const isSolved = gameState.roomSolved[i];
+        
+        let statusClass = 'bg-slate-800/80 text-slate-500 border-slate-700';
+        if (isSolved) statusClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
+        else if (isCurrent) statusClass = 'bg-cyan-500/20 text-cyan-400 border-cyan-400 glow-cyan';
+
+        badge.className = `px-3 py-1 rounded-lg border text-xs font-tech flex items-center gap-1.5 transition ${statusClass}`;
+        badge.innerHTML = `${isSolved ? '<i class="fa-solid fa-check"></i>' : ''} Raum ${i}`;
+        roomProgress.appendChild(badge);
+      }
+      // Master door badge
+      const masterBadge = document.createElement('div');
+      const isFinal = gameState.currentRoom === 6;
+      masterBadge.className = `px-3 py-1 rounded-lg border text-xs font-tech flex items-center gap-1.5 transition ${isFinal ? 'bg-amber-500/20 text-amber-400 border-amber-400 glow-gold' : 'bg-slate-800/80 text-slate-500 border-slate-700'}`;
+      masterBadge.innerHTML = `<i class="fa-solid fa-lock"></i> Tor`;
+      roomProgress.appendChild(masterBadge);
+    }
+
+    function startGame() {
+      audio.playClick();
+      introScreen.classList.add('hidden');
+      roomContainer.classList.remove('hidden');
+      startTimer();
+      loadRoom(1);
+    }
+
+    function showHint() {
+      audio.playClick();
+      gameState.hintsUsed++;
+      hintText.textContent = roomDetails[gameState.currentRoom].hint;
+      hintBox.classList.remove('hidden');
+    }
+
+    function loadRoom(roomNum) {
+      gameState.currentRoom = roomNum;
+      renderProgressBadges();
+      hintBox.classList.add('hidden');
+      codeBanner.classList.add('hidden');
+
+      if (roomNum > 5) {
+        showFinalDoor();
+        return;
+      }
+
+      document.getElementById('room-num-badge').textContent = `Raum ${roomNum} von 5`;
+      document.getElementById('room-title').textContent = roomDetails[roomNum].title;
+
+      puzzleView.innerHTML = '';
+
+      switch(roomNum) {
+        case 1: renderRoom1(); break;
+        case 2: renderRoom2(); break;
+        case 3: renderRoom3(); break;
+        case 4: renderRoom4(); break;
+        case 5: renderRoom5(); break;
+      }
+    }
+
+    function roomCompleted(code) {
+      audio.playSuccess();
+      gameState.roomSolved[gameState.currentRoom] = true;
+      renderProgressBadges();
+      unlockedCodeDisplay.textContent = `CODE ZIFFERN FÜR RAUM ${gameState.currentRoom}: [ ${code} ]`;
+      codeBanner.classList.remove('hidden');
+      codeBanner.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function advanceRoom() {
+      audio.playClick();
+      if (gameState.currentRoom < 5) {
+        loadRoom(gameState.currentRoom + 1);
+      } else {
+        loadRoom(6); // Final door
+      }
+    }
+
+    function renderRoom1() {
+      puzzleView.innerHTML = `
+        <div class="space-y-6">
+          <p class="text-slate-300 text-base md:text-lg">
+            Löse die drei einfachen Wurzelaufgaben, um die PIN für das Keypad der Sicherheitstür zu berechnen!
+          </p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700 text-center space-y-4">
+              <span class="text-sm font-bold text-slate-400 font-tech uppercase tracking-wider">AUFGABE A</span>
+              <div class="text-3xl md:text-4xl font-extrabold text-amber-400 font-tech">√144 = ?</div>
+              <input type="number" id="r1-a" class="w-full bg-slate-950 border-2 border-slate-700 rounded-xl py-3 px-4 text-center text-xl md:text-2xl font-tech text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="Ergebnis">
+            </div>
+            
+            <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700 text-center space-y-4">
+              <span class="text-sm font-bold text-slate-400 font-tech uppercase tracking-wider">AUFGABE B</span>
+              <div class="text-3xl md:text-4xl font-extrabold text-amber-400 font-tech">√0,25 = ?</div>
+              <input type="text" id="r1-b" class="w-full bg-slate-950 border-2 border-slate-700 rounded-xl py-3 px-4 text-center text-xl md:text-2xl font-tech text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="z.B. 0.5">
+            </div>
+
+            <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700 text-center space-y-4">
+              <span class="text-sm font-bold text-slate-400 font-tech uppercase tracking-wider">AUFGABE C</span>
+              <div class="text-3xl md:text-4xl font-extrabold text-amber-400 font-tech">√400 = ?</div>
+              <input type="number" id="r1-c" class="w-full bg-slate-950 border-2 border-slate-700 rounded-xl py-3 px-4 text-center text-xl md:text-2xl font-tech text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="Ergebnis">
+            </div>
+          </div>
+
+          <div class="text-center pt-4">
+            <button id="r1-submit" class="px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-tech font-bold text-lg rounded-xl shadow-lg transition glow-cyan">
+              <i class="fa-solid fa-lock-open mr-2"></i> TÜR-CODE PRÜFEN
+            </button>
+            <p id="r1-feedback" class="text-base font-semibold mt-4 min-h-[24px]"></p>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('r1-submit').addEventListener('click', () => {
+        const valA = document.getElementById('r1-a').value.trim();
+        const valB = document.getElementById('r1-b').value.trim().replace(',', '.');
+        const valC = document.getElementById('r1-c').value.trim();
+        const feedback = document.getElementById('r1-feedback');
+
+        if (valA === "12" && (valB === "0.5" || valB === "0,5") && valC === "20") {
+          feedback.className = "text-emerald-400 font-bold";
+          feedback.textContent = "Korrekt! Das Terminal wurde freigeschaltet.";
+          document.getElementById('r1-submit').disabled = true;
+          roomCompleted(gameState.unlockedCodes[1]);
+        } else {
+          audio.playError();
+          feedback.className = "text-rose-400 font-bold";
+          feedback.textContent = "Falsch! Überprüfe deine Ergebnisse (Tipp: 12² = 144, 0.5² = 0.25, 20² = 400).";
+        }
+      });
+    }
+
+    function renderRoom2() {
+      // Replaced Pi (π) with √5
+      const numbersToClassify = [
+        { id: 1, val: "7", target: "N" },
+        { id: 2, val: "-5", target: "Z" },
+        { id: 3, val: "0,75", target: "Q" },
+        { id: 4, val: "√3", target: "R" },
+        { id: 5, val: "√5", target: "R" },
+        { id: 6, val: "-√16", target: "Z" } // -√16 = -4 => Z
+      ];
+
+      puzzleView.innerHTML = `
+        <div class="space-y-6">
+          <p class="text-slate-300 text-base md:text-lg">
+            Ordne jede Zahl ihrer <span class="text-amber-400 font-bold">kleinstmöglichen passenden Zahlenmenge</span> zu (N = Natürliche, Z = Ganze, Q = Rationale, R = Reelle Zahlen):
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="classification-grid">
+            ${numbersToClassify.map(n => `
+              <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 flex items-center justify-between gap-4">
+                <span class="font-tech text-3xl font-extrabold text-cyan-400 w-24 text-center bg-slate-950 py-2.5 px-2 rounded-xl border border-slate-800">${n.val}</span>
+                <select data-id="${n.id}" class="num-select bg-slate-950 border-2 border-slate-700 rounded-xl px-3 py-3 text-amber-400 font-tech text-base md:text-lg font-bold outline-none focus:border-cyan-400 flex-1 transition">
+                  <option value="">Wähle Menge...</option>
+                  <option value="N">ℕ (Natürliche Zahlen)</option>
+                  <option value="Z">ℤ (Ganze Zahlen)</option>
+                  <option value="Q">ℚ (Rationale Zahlen)</option>
+                  <option value="R">ℝ (Reelle Zahlen)</option>
+                </select>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="text-center pt-4">
+            <button id="r2-submit" class="px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-tech font-bold text-lg rounded-xl shadow-lg transition glow-cyan">
+              <i class="fa-solid fa-check-double mr-2"></i> ZUORDNUNG PRÜFEN
+            </button>
+            <p id="r2-feedback" class="text-base font-semibold mt-4 min-h-[24px]"></p>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('r2-submit').addEventListener('click', () => {
+        const selects = document.querySelectorAll('.num-select');
+        let allCorrect = true;
+        const feedback = document.getElementById('r2-feedback');
+
+        selects.forEach(select => {
+          const id = parseInt(select.getAttribute('data-id'));
+          const item = numbersToClassify.find(x => x.id === id);
+          if (select.value !== item.target) {
+            allCorrect = false;
+            select.classList.add('border-rose-500');
+            select.classList.remove('border-slate-700');
+          } else {
+            select.classList.remove('border-rose-500', 'border-slate-700');
+            select.classList.add('border-emerald-500');
+          }
+        });
+
+        if (allCorrect) {
+          feedback.className = "text-emerald-400 font-bold";
+          feedback.textContent = "Perfekt! Alle Zahlen wurden korrekt eingeordnet.";
+          document.getElementById('r2-submit').disabled = true;
+          roomCompleted(gameState.unlockedCodes[2]);
+        } else {
+          audio.playError();
+          feedback.className = "text-rose-400 font-bold";
+          feedback.textContent = "Einige Zuordnungen sind noch falsch. Denke daran: -√16 = -4 (Ganze Zahl ℤ) und √5 ist eine reelle Zahl ℝ!";
+        }
+      });
+    }
+
+    function renderRoom3() {
+      puzzleView.innerHTML = `
+        <div class="space-y-6">
+          <p class="text-slate-300 text-base md:text-lg">
+            Wende die Wurzelgesetze an (Multiplikation & Division), um die vereinfachten Werte zu finden!
+          </p>
+
+          <div class="space-y-6 max-w-3xl mx-auto">
+            <!-- Problem 1 -->
+            <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="text-2xl md:text-3xl font-extrabold text-amber-400 font-tech flex items-center gap-2 flex-wrap">
+                <span>1) &nbsp; √2 · √8 &nbsp;=</span>
+                <span class="text-3xl md:text-4xl font-extrabold">√</span>
+                <input type="number" id="r3-1a" class="w-24 bg-slate-950 border-2 border-slate-700 rounded-xl px-3 py-2 text-center text-xl md:text-2xl font-tech text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="?">
+                <span>=</span>
+                <input type="number" id="r3-1b" class="w-24 bg-slate-950 border-2 border-slate-700 rounded-xl px-3 py-2 text-center text-xl md:text-2xl font-tech text-emerald-400 outline-none focus:border-emerald-400 transition" placeholder="?">
+              </div>
+            </div>
+
+            <!-- Problem 2 -->
+            <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="text-2xl md:text-3xl font-extrabold text-amber-400 font-tech flex items-center gap-2 flex-wrap">
+                <span>2) &nbsp; √72 / √2 &nbsp;=</span>
+                <span class="text-3xl md:text-4xl font-extrabold">√</span>
+                <input type="number" id="r3-2a" class="w-24 bg-slate-950 border-2 border-slate-700 rounded-xl px-3 py-2 text-center text-xl md:text-2xl font-tech text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="?">
+                <span>=</span>
+                <input type="number" id="r3-2b" class="w-24 bg-slate-950 border-2 border-slate-700 rounded-xl px-3 py-2 text-center text-xl md:text-2xl font-tech text-emerald-400 outline-none focus:border-emerald-400 transition" placeholder="?">
+              </div>
+            </div>
+
+            <!-- Problem 3 -->
+            <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="text-2xl md:text-3xl font-extrabold text-amber-400 font-tech flex items-center gap-2 flex-wrap">
+                <span>3) &nbsp; √(3 · 27) &nbsp;=</span>
+                <span class="text-3xl md:text-4xl font-extrabold">√</span>
+                <input type="number" id="r3-3a" class="w-24 bg-slate-950 border-2 border-slate-700 rounded-xl px-3 py-2 text-center text-xl md:text-2xl font-tech text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="?">
+                <span>=</span>
+                <input type="number" id="r3-3b" class="w-24 bg-slate-950 border-2 border-slate-700 rounded-xl px-3 py-2 text-center text-xl md:text-2xl font-tech text-emerald-400 outline-none focus:border-emerald-400 transition" placeholder="?">
+              </div>
+            </div>
+          </div>
+
+          <div class="text-center pt-4">
+            <button id="r3-submit" class="px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-tech font-bold text-lg rounded-xl shadow-lg transition glow-cyan">
+              <i class="fa-solid fa-bolt mr-2"></i> ENERGIE-SCHALTKREIS AKTIVIEREN
+            </button>
+            <p id="r3-feedback" class="text-base font-semibold mt-4 min-h-[24px]"></p>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('r3-submit').addEventListener('click', () => {
+        const v1a = document.getElementById('r3-1a').value.trim();
+        const v1b = document.getElementById('r3-1b').value.trim();
+        const v2a = document.getElementById('r3-2a').value.trim();
+        const v2b = document.getElementById('r3-2b').value.trim();
+        const v3a = document.getElementById('r3-3a').value.trim();
+        const v3b = document.getElementById('r3-3b').value.trim();
+        const feedback = document.getElementById('r3-feedback');
+
+        if (v1a === "16" && v1b === "4" && v2a === "36" && v2b === "6" && v3a === "81" && v3b === "9") {
+          feedback.className = "text-emerald-400 font-bold";
+          feedback.textContent = "Hervorragend! Die Wurzelgesetze wurden perfekt angewendet.";
+          document.getElementById('r3-submit').disabled = true;
+          roomCompleted(gameState.unlockedCodes[3]);
+        } else {
+          audio.playError();
+          feedback.className = "text-rose-400 font-bold";
+          feedback.textContent = "Fehler im Schaltkreis! Denke an: √a · √b = √(a·b) und √a / √b = √(a/b).";
+        }
+      });
+    }
+
+    function renderRoom4() {
+      puzzleView.innerHTML = `
+        <div class="space-y-6">
+          <p class="text-slate-300 text-base md:text-lg">
+            Ziehe teilweise die Wurzel (Form: <span class="text-amber-400 font-bold">a√b</span>), sodass der Wert unter der verbleibenden Wurzel so klein wie möglich ist!
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Safe dial 1 -->
+            <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700 text-center space-y-4">
+              <div class="text-sm font-bold text-slate-400 font-tech uppercase tracking-wider">SCHLOSS 1</div>
+              <div class="text-3xl md:text-4xl font-extrabold text-amber-400 font-tech">√50</div>
+              <div class="flex items-center justify-center gap-2 text-2xl md:text-3xl font-tech">
+                <input type="number" id="r4-1a" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 text-center font-bold text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="a">
+                <span class="text-3xl md:text-4xl font-extrabold text-amber-400">√</span>
+                <input type="number" id="r4-1b" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 text-center font-bold text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="b">
+              </div>
+            </div>
+
+            <!-- Safe dial 2 -->
+            <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700 text-center space-y-4">
+              <div class="text-sm font-bold text-slate-400 font-tech uppercase tracking-wider">SCHLOSS 2</div>
+              <div class="text-3xl md:text-4xl font-extrabold text-amber-400 font-tech">√12</div>
+              <div class="flex items-center justify-center gap-2 text-2xl md:text-3xl font-tech">
+                <input type="number" id="r4-2a" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 text-center font-bold text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="a">
+                <span class="text-3xl md:text-4xl font-extrabold text-amber-400">√</span>
+                <input type="number" id="r4-2b" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 text-center font-bold text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="b">
+              </div>
+            </div>
+
+            <!-- Safe dial 3 -->
+            <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700 text-center space-y-4">
+              <div class="text-sm font-bold text-slate-400 font-tech uppercase tracking-wider">SCHLOSS 3</div>
+              <div class="text-3xl md:text-4xl font-extrabold text-amber-400 font-tech">√75</div>
+              <div class="flex items-center justify-center gap-2 text-2xl md:text-3xl font-tech">
+                <input type="number" id="r4-3a" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 text-center font-bold text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="a">
+                <span class="text-3xl md:text-4xl font-extrabold text-amber-400">√</span>
+                <input type="number" id="r4-3b" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 text-center font-bold text-cyan-400 outline-none focus:border-cyan-400 transition" placeholder="b">
+              </div>
+            </div>
+          </div>
+
+          <div class="text-center pt-4">
+            <button id="r4-submit" class="px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-tech font-bold text-lg rounded-xl shadow-lg transition glow-cyan">
+              <i class="fa-solid fa-vault mr-2"></i> TRESOR RIEGEL ENTRIEGELN
+            </button>
+            <p id="r4-feedback" class="text-base font-semibold mt-4 min-h-[24px]"></p>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('r4-submit').addEventListener('click', () => {
+        const v1a = document.getElementById('r4-1a').value.trim();
+        const v1b = document.getElementById('r4-1b').value.trim();
+        const v2a = document.getElementById('r4-2a').value.trim();
+        const v2b = document.getElementById('r4-2b').value.trim();
+        const v3a = document.getElementById('r4-3a').value.trim();
+        const v3b = document.getElementById('r4-3b').value.trim();
+        const feedback = document.getElementById('r4-feedback');
+
+        // √50 = 5√2, √12 = 2√3, √75 = 5√3
+        if (v1a === "5" && v1b === "2" && v2a === "2" && v2b === "3" && v3a === "5" && v3b === "3") {
+          feedback.className = "text-emerald-400 font-bold";
+          feedback.textContent = "Tresor geöffnet! Teilweises Wurzelziehen gelöst.";
+          document.getElementById('r4-submit').disabled = true;
+          roomCompleted(gameState.unlockedCodes[4]);
+        } else {
+          audio.playError();
+          feedback.className = "text-rose-400 font-bold";
+          feedback.textContent = "Die Tresor-Kombination stimmt nicht. Zerlege z.B. 50 in 25 × 2!";
+        }
+      });
+    }
+
+    function renderRoom5() {
+      puzzleView.innerHTML = `
+        <div class="space-y-6">
+          <p class="text-slate-300 text-base md:text-lg">
+            Bestimme näherungsweise, zwischen welchen zwei aufeinanderfolgenden <span class="text-amber-400 font-bold">ganzen Zahlen</span> die Wurzeln liegen:
+          </p>
+
+          <div class="space-y-6 max-w-3xl mx-auto">
+            <!-- Approx 1 -->
+            <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 flex flex-wrap items-center justify-between gap-4">
+              <span class="text-xl md:text-2xl font-bold text-amber-400 font-tech">Zwischen welchen Zahlen liegt <span class="text-cyan-400 font-extrabold">√30</span>?</span>
+              <div class="flex items-center gap-3 font-tech text-xl md:text-2xl font-extrabold">
+                <input type="number" id="r5-1a" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 px-2 text-center text-amber-400 outline-none focus:border-cyan-400 transition" placeholder="Min">
+                <span>&lt; &nbsp;√30 &nbsp;&lt;</span>
+                <input type="number" id="r5-1b" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 px-2 text-center text-amber-400 outline-none focus:border-cyan-400 transition" placeholder="Max">
+              </div>
+            </div>
+
+            <!-- Approx 2 -->
+            <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 flex flex-wrap items-center justify-between gap-4">
+              <span class="text-xl md:text-2xl font-bold text-amber-400 font-tech">Zwischen welchen Zahlen liegt <span class="text-cyan-400 font-extrabold">√80</span>?</span>
+              <div class="flex items-center gap-3 font-tech text-xl md:text-2xl font-extrabold">
+                <input type="number" id="r5-2a" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 px-2 text-center text-amber-400 outline-none focus:border-cyan-400 transition" placeholder="Min">
+                <span>&lt; &nbsp;√80 &nbsp;&lt;</span>
+                <input type="number" id="r5-2b" class="w-20 md:w-24 bg-slate-950 border-2 border-slate-700 rounded-xl py-3 px-2 text-center text-amber-400 outline-none focus:border-cyan-400 transition" placeholder="Max">
+              </div>
+            </div>
+
+            <!-- Nearest integer selection -->
+            <div class="bg-slate-900/80 p-5 rounded-xl border border-slate-700 space-y-4">
+              <div class="text-lg md:text-xl font-bold text-amber-400">Welcher ganzen Zahl liegt <span class="text-cyan-400 font-tech text-2xl font-extrabold">√45</span> am nächsten?</div>
+              <div class="grid grid-cols-3 gap-3 pt-1">
+                <button type="button" class="opt-btn py-3 px-2 bg-slate-950 hover:bg-slate-800 border-2 border-slate-700 rounded-xl font-tech text-lg md:text-xl text-cyan-400 transition" data-val="6">6 (da √36)</button>
+                <button type="button" class="opt-btn py-3 px-2 bg-slate-950 hover:bg-slate-800 border-2 border-slate-700 rounded-xl font-tech text-lg md:text-xl text-cyan-400 transition" data-val="7">7 (da √49)</button>
+                <button type="button" class="opt-btn py-3 px-2 bg-slate-950 hover:bg-slate-800 border-2 border-slate-700 rounded-xl font-tech text-lg md:text-xl text-cyan-400 transition" data-val="8">8 (da √64)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-center pt-4">
+            <button id="r5-submit" class="px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-tech font-bold text-lg rounded-xl shadow-lg transition glow-cyan">
+              <i class="fa-solid fa-compass mr-2"></i> NÄHERUNGSWERTE PRÜFEN
+            </button>
+            <p id="r5-feedback" class="text-base font-semibold mt-4 min-h-[24px]"></p>
+          </div>
+        </div>
+      `;
+
+      let selectedNearest = null;
+      const optBtns = puzzleView.querySelectorAll('.opt-btn');
+      optBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          optBtns.forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/20'));
+          btn.classList.add('border-amber-400', 'bg-amber-500/20');
+          selectedNearest = btn.getAttribute('data-val');
+        });
+      });
+
+      document.getElementById('r5-submit').addEventListener('click', () => {
+        const v1a = document.getElementById('r5-1a').value.trim();
+        const v1b = document.getElementById('r5-1b').value.trim();
+        const v2a = document.getElementById('r5-2a').value.trim();
+        const v2b = document.getElementById('r5-2b').value.trim();
+        const feedback = document.getElementById('r5-feedback');
+
+        if (v1a === "5" && v1b === "6" && v2a === "8" && v2b === "9" && selectedNearest === "7") {
+          feedback.className = "text-emerald-400 font-bold";
+          feedback.textContent = "Ausgezeichnet! Alle Näherungswerte sind exakt bestimmt.";
+          document.getElementById('r5-submit').disabled = true;
+          roomCompleted(gameState.unlockedCodes[5]);
+        } else {
+          audio.playError();
+          feedback.className = "text-rose-400 font-bold";
+          feedback.textContent = "Überprüfe deine Abschätzungen! 5² = 25, 6² = 36, 7² = 49, 8² = 64, 9² = 81.";
+        }
+      });
+    }
+
+    function showFinalDoor() {
+      roomContainer.classList.add('hidden');
+      finalScreen.classList.remove('hidden');
+
+      // Populate hints collected
+      document.getElementById('code-val-1').textContent = gameState.unlockedCodes[1];
+      document.getElementById('code-val-2').textContent = gameState.unlockedCodes[2];
+      document.getElementById('code-val-3').textContent = gameState.unlockedCodes[3];
+      document.getElementById('code-val-4').textContent = gameState.unlockedCodes[4];
+      document.getElementById('code-val-5').textContent = gameState.unlockedCodes[5];
+
+      // Auto-focus logic for inputs
+      const inputs = [
+        document.getElementById('master-input-1'),
+        document.getElementById('master-input-2'),
+        document.getElementById('master-input-3'),
+        document.getElementById('master-input-4'),
+        document.getElementById('master-input-5')
+      ];
+
+      inputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+          if (e.target.value.length >= 1 && index < inputs.length - 1) {
+            inputs[index + 1].focus();
+          }
+        });
+      });
+    }
+
+    function checkMasterLock() {
+      const i1 = document.getElementById('master-input-1').value.trim();
+      const i2 = document.getElementById('master-input-2').value.trim();
+      const i3 = document.getElementById('master-input-3').value.trim();
+      const i4 = document.getElementById('master-input-4').value.trim();
+      const i5 = document.getElementById('master-input-5').value.trim();
+
+      const enteredCode = `${i1}${i2}${i3}${i4}${i5}`;
+      const correctCode = `${gameState.unlockedCodes[1]}${gameState.unlockedCodes[2]}${gameState.unlockedCodes[3]}${gameState.unlockedCodes[4]}${gameState.unlockedCodes[5]}`;
+
+      const feedback = document.getElementById('master-feedback');
+
+      if (enteredCode === correctCode) {
+        clearInterval(gameState.timerInterval);
+        audio.playSuccess();
+        finalScreen.classList.add('hidden');
+        victoryScreen.classList.remove('hidden');
+
+        // Confetti celebration
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.6 }
+          });
+        }
+
+        // Display results
+        const mins = String(Math.floor(gameState.elapsedSeconds / 60)).padStart(2, '0');
+        const secs = String(gameState.elapsedSeconds % 60).padStart(2, '0');
+        document.getElementById('final-time').textContent = `${mins}:${secs}`;
+        document.getElementById('final-hints').textContent = gameState.hintsUsed;
+
+        // Calculate Stars
+        const starContainer = document.getElementById('star-rating');
+        if (gameState.hintsUsed === 0) {
+          starContainer.innerHTML = '<i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>';
+        } else if (gameState.hintsUsed <= 2) {
+          starContainer.innerHTML = '<i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i>';
+        } else {
+          starContainer.innerHTML = '<i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>';
+        }
+
+      } else {
+        audio.playError();
+        feedback.textContent = "Falscher Master-Code! Überprüfe die gesammelten Ziffern aus Raum 1 bis 5.";
+      }
+    }
+  </script>
+</body>
+</html>
